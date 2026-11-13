@@ -1,0 +1,96 @@
+{
+  "config": {
+    "reminders": {
+      "Posture": { "enabled": true, "intervalSeconds": 900, "idleResetSeconds": 300 },
+      "Eye": { "enabled": true, "intervalSeconds": 1200, "idleResetSeconds": 60 },
+      "Movement": { "enabled": true, "intervalSeconds": 1800, "idleResetSeconds": 300 },
+      "LongBreak": { "enabled": true, "intervalSeconds": 7200, "idleResetSeconds": 900 }
+    },
+    "activeThresholdSeconds": 60,
+    "fullResetIdleSeconds": 1800,
+    "snoozeSeconds": 300,
+    "unmuteDelaySeconds": 60
+  },
+  "cases": [
+    {
+      "name": "posture fires first after active use",
+      "steps": [
+        { "op": "tick", "seconds": 899, "shows": null },
+        { "op": "tick", "seconds": 1, "shows": "Posture" }
+      ]
+    },
+    {
+      "name": "idle time does not count",
+      "steps": [
+        { "op": "tick", "seconds": 600 },
+        { "op": "tick", "seconds": 600, "idle": 120 },
+        { "op": "expectRemaining", "kind": "Movement", "seconds": 1200 }
+      ]
+    },
+    {
+      "name": "idle resets only reminders with lower thresholds",
+      "steps": [
+        { "op": "tick", "seconds": 600 },
+        { "op": "tick", "seconds": 1, "idle": 120 },
+        { "op": "expectRemaining", "kind": "Eye", "seconds": 1200 },
+        { "op": "expectRemaining", "kind": "Movement", "seconds": 1200 }
+      ]
+    },
+    {
+      "name": "long idle resets everything",
+      "steps": [
+        { "op": "tick", "seconds": 6000 },
+        { "op": "tick", "seconds": 1, "idle": 1800 },
+        { "op": "expectRemaining", "kind": "LongBreak", "seconds": 7200 }
+      ]
+    },
+    {
+      "name": "largest due reminder wins and resets smaller ones",
+      "steps": [
+        { "op": "forceShow", "kind": "Posture" },
+        { "op": "tick", "seconds": 1800, "shows": null },
+        { "op": "hide", "kind": "Posture" },
+        { "op": "tick", "seconds": 1, "shows": "Movement" },
+        { "op": "complete", "kind": "Movement" },
+        { "op": "expectRemaining", "kind": "Eye", "seconds": 1200 },
+        { "op": "expectRemaining", "kind": "Posture", "seconds": 900 },
+        { "op": "expectRemaining", "kind": "LongBreak", "seconds": 5399 }
+      ]
+    },
+    {
+      "name": "snooze refires after snooze active time",
+      "steps": [
+        { "op": "setEnabled", "kind": "Eye", "enabled": false },
+        { "op": "tick", "seconds": 900, "shows": "Posture" },
+        { "op": "snooze", "kind": "Posture" },
+        { "op": "tick", "seconds": 299, "shows": null },
+        { "op": "tick", "seconds": 1, "shows": "Posture" }
+      ]
+    },
+    {
+      "name": "due reminder is held while muted and shown after unmute delay",
+      "steps": [
+        { "op": "tick", "seconds": 960, "muted": true, "shows": null },
+        { "op": "tick", "seconds": 60, "shows": null },
+        { "op": "tick", "seconds": 1, "shows": "Posture" }
+      ]
+    },
+    {
+      "name": "nothing is shown while idle",
+      "steps": [
+        { "op": "tick", "seconds": 900 },
+        { "op": "hide", "kind": "Posture" },
+        { "op": "tick", "seconds": 1, "idle": 90, "shows": null }
+      ]
+    },
+    {
+      "name": "idle through a showing reminder clears it",
+      "steps": [
+        { "op": "tick", "seconds": 900 },
+        { "op": "expectShowing", "kind": "Posture" },
+        { "op": "tick", "seconds": 1, "idle": 300 },
+        { "op": "expectShowing", "kind": null }
+      ]
+    }
+  ]
+}

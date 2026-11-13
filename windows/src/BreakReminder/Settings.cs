@@ -28,6 +28,7 @@ public sealed class Settings
     public int PostureAutoHideSeconds { get; set; } = 15;
 
     public string MuteHotkey { get; set; } = "Control, Alt, B";
+    public bool AutoMuteInCall { get; set; } = true;
     public bool AutoMuteNotificationState { get; set; } = true;
     public bool AutoMuteFullscreen { get; set; } = true;
     public bool AutoMuteScreenShare { get; set; } = true;

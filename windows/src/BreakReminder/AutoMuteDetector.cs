@@ -1,19 +1,46 @@
 using System.Text;
+using Microsoft.Win32;
 
 namespace BreakReminder;
 
-/// <summary>Detects presentations, fullscreen apps and screen sharing.</summary>
+/// <summary>Detects calls, presentations, fullscreen apps and screen sharing.</summary>
 internal sealed class AutoMuteDetector(Settings settings)
 {
+    private const string ConsentStore = @"Software\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore";
     private static readonly HashSet<string> ShellClasses = ["Progman", "WorkerW", "Shell_TrayWnd"];
 
     /// <summary>The reason to mute, or null when reminders may be shown.</summary>
     public string? Check()
     {
+        if (settings.AutoMuteInCall && IsInCall()) return "in a call";
         if (settings.AutoMuteNotificationState && IsBusyState()) return "presenting or fullscreen";
         if (settings.AutoMuteFullscreen && IsForegroundFullscreen()) return "fullscreen";
         if (settings.AutoMuteScreenShare && IsScreenSharing()) return "screen sharing";
         return null;
+    }
+
+    private static bool IsInCall() => IsDeviceInUse("webcam") || IsDeviceInUse("microphone");
+
+    // Windows records per-app camera/mic use; a started session with no stop time is in use now.
+    private static bool IsDeviceInUse(string device)
+    {
+        using var root = Registry.CurrentUser.OpenSubKey($@"{ConsentStore}\{device}");
+        if (root == null) return false;
+        if (AnyAppInUse(root)) return true;
+        using var nonPackaged = root.OpenSubKey("NonPackaged");
+        return nonPackaged != null && AnyAppInUse(nonPackaged);
+    }
+
+    private static bool AnyAppInUse(RegistryKey parent)
+    {
+        foreach (var name in parent.GetSubKeyNames())
+        {
+            using var app = parent.OpenSubKey(name);
+            if (app?.GetValue("LastUsedTimeStart") is long start && start > 0 &&
+                app.GetValue("LastUsedTimeStop") is long stop && stop == 0)
+                return true;
+        }
+        return false;
     }
 
     private static bool IsBusyState() =>
